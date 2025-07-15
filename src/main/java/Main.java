@@ -1,7 +1,7 @@
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Set;
 
 public class Main {
     
@@ -16,7 +16,8 @@ public class Main {
       }
     }
     RedisConfig config = new RedisConfig(dir, dbfilename);
-
+     String rdbPath = dir + "/" + dbfilename;
+    Set<String> keys = RdbLoader.loadKeys(rdbPath);
 
         ServerSocket serverSocket = null;
         Socket clientSocket = null;
@@ -26,10 +27,8 @@ public class Main {
           serverSocket = new ServerSocket(port);
         serverSocket.setReuseAddress(true);
       while (true) {
-     
-        
        clientSocket = serverSocket.accept();
-       new Thread(new ClientHandler(clientSocket,config)).start();
+       new Thread(new ClientHandler(clientSocket,config,keys)).start();
         
       }
         } catch (IOException e) {

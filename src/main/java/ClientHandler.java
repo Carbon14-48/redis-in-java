@@ -2,15 +2,17 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.List;
+import java.util.Set;
 
 public class ClientHandler implements Runnable {
     Socket clientSocket;
     RespParser parser;
     RedisConfig config;
-    ClientHandler(Socket clientSocket, RedisConfig config) {
+    Set<String> keys;
+    ClientHandler(Socket clientSocket, RedisConfig config,Set<String> keys) {
         this.clientSocket=clientSocket;
         this.config = config;
-      
+        this.keys = keys;
         }
     
        private void handlePing(OutputStream out) throws IOException {
@@ -59,6 +61,16 @@ private void handleConfigGet(List<String> cmd, OutputStream out) throws IOExcept
     }
     out.write(fmt.formatBulkArray(param, value).getBytes("UTF-8"));
 }
+
+private void handleKeys(OutputStream out, List<String> cmd) throws IOException {
+    Formatter fmt = new Formatter();
+    if (cmd.size() > 1 && "*".equals(cmd.get(1))) {
+        out.write(fmt.formatArray(keys).getBytes("UTF-8"));
+    } else {
+        out.write(fmt.formatArray(Set.of()).getBytes("UTF-8"));
+    }
+}
+
 public void run() {
   try {
       var in = clientSocket.getInputStream();
@@ -87,6 +99,10 @@ public void run() {
                           handleConfigGet(cmd.subList(1, cmd.size()), out);
                       }
                       break;
+                      case "KEYS":
+                      handleKeys(out, cmd);
+                      break;
+
               }
               
               out.flush();

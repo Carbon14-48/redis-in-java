@@ -1,3 +1,5 @@
+import java.util.Collection;
+
 public class Formatter {
  
     
@@ -15,5 +17,12 @@ public class Formatter {
         sb.append(formatBulkString(value));
         return sb.toString();
     }
-
+public String formatArray(Collection<String> items) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("*").append(items.size()).append("\r\n");
+        for (String item : items) {
+            sb.append(formatBulkString(item));
+        }
+        return sb.toString();
+    }
 }
