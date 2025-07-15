@@ -6,8 +6,17 @@ import java.net.Socket;
 public class Main {
     
   public static void main(String[] args){
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    System.out.println("Logs from your program will appear here!");
+    String dir = "/tmp"; 
+    String dbfilename = "dump.rdb"; 
+    for (int i = 0; i < args.length; i++) {
+      if ("--dir".equals(args[i]) && i + 1 < args.length) {
+        dir = args[++i];
+      } else if ("--dbfilename".equals(args[i]) && i + 1 < args.length) {
+        dbfilename = args[++i];
+      }
+    }
+    RedisConfig config = new RedisConfig(dir, dbfilename);
+
 
         ServerSocket serverSocket = null;
         Socket clientSocket = null;
@@ -20,7 +29,7 @@ public class Main {
      
         
        clientSocket = serverSocket.accept();
-       new Thread(new ClientHandler(clientSocket)).start();
+       new Thread(new ClientHandler(clientSocket,config)).start();
         
       }
         } catch (IOException e) {
@@ -39,4 +48,7 @@ public class Main {
         
         
   }
+
+
+  
 }

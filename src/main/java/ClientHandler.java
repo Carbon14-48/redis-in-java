@@ -6,8 +6,10 @@ import java.util.List;
 public class ClientHandler implements Runnable {
     Socket clientSocket;
     RespParser parser;
-    ClientHandler(Socket clientSocket) {
+    RedisConfig config;
+    ClientHandler(Socket clientSocket, RedisConfig config) {
         this.clientSocket=clientSocket;
+        this.config = config;
       
         }
     
@@ -43,6 +45,20 @@ private void handleSet(List<String> cmd, OutputStream out, SetGet store) throws 
 private void handleGet(List<String> cmd, OutputStream out, SetGet store) throws IOException {
     out.write(store.get(cmd.get(1)).getBytes("UTF-8"));
 }
+
+
+
+private void handleConfigGet(List<String> cmd, OutputStream out) throws IOException {
+    Formatter fmt = new Formatter();
+    String param = cmd.size() > 1 ? cmd.get(1) : "";
+    String value = null;
+    if ("dir".equalsIgnoreCase(param)) {
+        value = config.getDir();
+    } else if ("dbfilename".equalsIgnoreCase(param)) {
+        value = config.getDbfilename();
+    }
+    out.write(fmt.formatBulkArray(param, value).getBytes("UTF-8"));
+}
 public void run() {
   try {
       var in = clientSocket.getInputStream();
@@ -54,19 +70,25 @@ public void run() {
               var cmd = parser.parseArray();
               String command = cmd.get(0).toUpperCase();
               switch (command) {
-                  case "PING":
+                    case "PING":
                       handlePing(out);
                       break;
-                  case "ECHO":
+                    case "ECHO":
                       handleEcho(cmd, out);
                       break;
-                  case "SET":
+                    case "SET":
                       handleSet(cmd, out, store);
                       break;
-                  case "GET":
+                    case   "GET":
                       handleGet(cmd, out, store);
                       break;
+                    case "CONFIG":
+                      if (cmd.size() > 1 && "GET".equalsIgnoreCase(cmd.get(1))) {
+                          handleConfigGet(cmd.subList(1, cmd.size()), out);
+                      }
+                      break;
               }
+              
               out.flush();
           } catch (IOException e) {
               break;
