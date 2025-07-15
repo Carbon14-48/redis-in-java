@@ -2,18 +2,19 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class ClientHandler implements Runnable {
     Socket clientSocket;
     RespParser parser;
     RedisConfig config;
-    Set<String> keys;
-    ClientHandler(Socket clientSocket, RedisConfig config,Set<String> keys) {
+    Map<String, String> rdbData;
+    ClientHandler(Socket clientSocket, RedisConfig config,Map<String, String> rdbData) {
         this.clientSocket=clientSocket;
         this.config = config;
-        this.keys = keys;
-        }
+        this.rdbData = rdbData;
+            }
     
        private void handlePing(OutputStream out) throws IOException {
     out.write("+PONG\r\n".getBytes("UTF-8"));
@@ -45,7 +46,15 @@ private void handleSet(List<String> cmd, OutputStream out, SetGet store) throws 
 }
 
 private void handleGet(List<String> cmd, OutputStream out, SetGet store) throws IOException {
-    out.write(store.get(cmd.get(1)).getBytes("UTF-8"));
+    String key = cmd.get(1);
+    // First, check in-memory
+    String value = store.getValue(key);
+    if (value == null) {
+        // Fallback to RDB data
+        value = rdbData.get(key);
+    }
+    Formatter fmt = new Formatter();
+    out.write(fmt.formatBulkString(value).getBytes("UTF-8"));
 }
 
 
@@ -65,12 +74,11 @@ private void handleConfigGet(List<String> cmd, OutputStream out) throws IOExcept
 private void handleKeys(OutputStream out, List<String> cmd) throws IOException {
     Formatter fmt = new Formatter();
     if (cmd.size() > 1 && "*".equals(cmd.get(1))) {
-        out.write(fmt.formatArray(keys).getBytes("UTF-8"));
+        out.write(fmt.formatArray(rdbData.keySet()).getBytes("UTF-8"));
     } else {
         out.write(fmt.formatArray(Set.of()).getBytes("UTF-8"));
     }
 }
-
 public void run() {
   try {
       var in = clientSocket.getInputStream();

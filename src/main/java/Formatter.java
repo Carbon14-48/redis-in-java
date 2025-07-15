@@ -6,9 +6,9 @@ public class Formatter {
     public String formatSimpleString(String cmd){
         return "+"+cmd+"\r\n";
     }
-    public String formatBulkString(String cmd){
-        if (cmd==null)  return "$-1"+"\r\n";
-        return "$"+cmd.length()+"\r\n"+cmd+"\r\n";
+    public String formatBulkString(String value) {
+        if (value == null) return "$-1\r\n";
+        return "$" + value.length() + "\r\n" + value + "\r\n";
     }
     public String formatBulkArray(String key, String value) {
         StringBuilder sb = new StringBuilder();
