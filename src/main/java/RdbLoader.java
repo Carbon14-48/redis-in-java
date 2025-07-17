@@ -2,81 +2,95 @@ import java.io.*;
 import java.util.*;
 
 public class RdbLoader {
-    public static Map<String, String> loadRdbData(String filePath) {
-        Map<String, String> data = new HashMap<>();
-        try (InputStream in = new FileInputStream(filePath)) {
-            in.skip(9); // skip header
-            int b;
-            while ((b = in.read()) != -1) {
-                System.out.println("RDB byte: " + String.format("0x%02X", b));
-                if (b == 0xFE) { 
-                    readSize(in); readSize(in); readSize(in);
-                } else if (b == 0xFC || b == 0xFD) { 
-                    int len = (b == 0xFC) ? 8 : 4;
-                    in.skip(len);
-                } else if (b == 0x00) { // string type
-                    String key = readString(in);
-                    String value = readString(in);
-                    // Fix: if key is empty, treat value as key and next string as value
-                    if (key != null && !key.isEmpty()) {
-                        System.out.println("Loaded key='" + key + "', value='" + value + "'");
-                        data.put(key, value);
-                    } else {
-                        // key is empty, value is actual key, so read another string for actual value
-                        String realKey = value;
-                        String realValue = readString(in);
-                        System.out.println("Loaded key='" + realKey + "', value='" + realValue + "'");
-                        data.put(realKey, realValue);
-                    }
-                } else if (b == 0xFF) {
+    public static Map<String, ValueWithExpiry> loadRdbData(String filePath) {
+        Map<String, ValueWithExpiry> data = new HashMap<>();
+        try (DataInputStream in = new DataInputStream(new FileInputStream(filePath))) {
+            // Check magic
+            byte[] magic = new byte[5];
+            in.readFully(magic);
+            if (!"REDIS".equals(new String(magic))) throw new IOException("Invalid RDB header");
+            in.skipBytes(4);
+
+            Long expiry = null;
+            while (true) {
+                int opcode;
+                try {
+                    opcode = in.readUnsignedByte();
+                } catch (EOFException e) {
                     break;
+                }
+                if (opcode == 0xFF) break;
+
+                switch (opcode) {
+                    case 0xFB: // RESIZEDB
+                        readLength(in);
+                        readLength(in); 
+                        break;
+                    case 0xFA: // AUX
+                        readString(in); readString(in);
+                        break;
+                    case 0xFC: // Expiry ms
+                        expiry = Long.reverseBytes(in.readLong());
+                        break;
+                    case 0xFD: // Expiry s
+                        expiry = Integer.reverseBytes(in.readInt()) * 1000L;
+                        break;
+                    case 0x00: { // String key-value
+                        String key = readString(in);
+                        String value = readString(in);
+                        if (key != null && !key.isEmpty() && value != null) {
+                            data.put(key, new ValueWithExpiry(value, expiry != null ? expiry : 0));
+                        }
+                        expiry = null;
+                        break;
+                    }
+                    case 0xFE: // Select DB
+                        in.readUnsignedByte(); 
+                        break;
+                    default:
+                        return data;
                 }
             }
         } catch (IOException e) {
-            System.out.println("Exception while loading RDB data: " + e.getMessage());
+            System.err.println("[RDB] Error loading: " + e.getMessage());
         }
-        System.out.println("Final loaded RDB data: " + data);
         return data;
     }
 
-    private static int readSize(InputStream in) throws IOException {
-        int first = in.read();
-        int type = (first & 0xC0) >> 6;
-        if (type == 0) return first & 0x3F;
-        else if (type == 1) {
-            int second = in.read();
-            return ((first & 0x3F) << 8) | second;
-        } else if (type == 2) {
-            int[] bytes = new int[4];
-            for (int i = 0; i < 4; i++) bytes[i] = in.read();
-            return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
-        } else return 0;
+    private static String readString(DataInputStream in) throws IOException {
+        int firstByte = in.readUnsignedByte();
+        int encType = (firstByte & 0xC0) >> 6;
+        int length;
+        switch (encType) {
+            case 0: // 6-bit length
+                length = firstByte & 0x3F;
+                break;
+            case 1: // 14-bit length
+                length = ((firstByte & 0x3F) << 8) | in.readUnsignedByte();
+                break;
+            case 2: // 32-bit length
+                length = in.readInt();
+                break;
+            case 3:
+                int encVal = firstByte & 0x3F;
+                if (encVal == 0) { in.readUnsignedByte(); return ""; } // int8
+                if (encVal == 1) { in.readUnsignedByte(); in.readUnsignedByte(); return ""; } // int16
+                if (encVal == 2) { in.readInt(); return ""; } // int32
+                return "";
+            default:
+                return "";
+        }
+        byte[] bytes = new byte[length];
+        in.readFully(bytes);
+        return new String(bytes, "UTF-8");
     }
 
-    private static String readString(InputStream in) throws IOException {
-        int first = in.read();
+    private static int readLength(DataInputStream in) throws IOException {
+        int first = in.readUnsignedByte();
         int type = (first & 0xC0) >> 6;
-        int length = 0;
-        if (type == 0) length = first & 0x3F;
-        else if (type == 1) {
-            int second = in.read();
-            length = ((first & 0x3F) << 8) | second;
-        } else if (type == 2) {
-            int[] bytes = new int[4];
-            for (int i = 0; i < 4; i++) bytes[i] = in.read();
-            length = (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
-        } else if (type == 3) {
-            throw new IOException("Unsupported string encoding");
-        }
-        byte[] buf = new byte[length];
-        int off = 0;
-        while (off < length) {
-            int n = in.read(buf, off, length - off);
-            if (n == -1) throw new IOException("Unexpected end of stream");
-            off += n;
-        }
-        String s = new String(buf, "UTF-8");
-        System.out.println("RDB readString: length=" + length + ", value='" + s + "'");
-        return s;
+        if (type == 0) return first & 0x3F;
+        if (type == 1) return ((first & 0x3F) << 8) | in.readUnsignedByte();
+        if (type == 2) return in.readInt();
+        throw new IOException("Unsupported length encoding");
     }
 }

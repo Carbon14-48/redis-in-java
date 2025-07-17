@@ -9,12 +9,13 @@ public class ClientHandler implements Runnable {
     Socket clientSocket;
     RespParser parser;
     RedisConfig config;
-    Map<String, String> rdbData;
-    ClientHandler(Socket clientSocket, RedisConfig config,Map<String, String> rdbData) {
-        this.clientSocket=clientSocket;
+    Map<String, ValueWithExpiry> rdbData; 
+
+    public ClientHandler(Socket clientSocket, RedisConfig config, Map<String, ValueWithExpiry> rdbData) {
+        this.clientSocket = clientSocket;
         this.config = config;
         this.rdbData = rdbData;
-            }
+    }
     
        private void handlePing(OutputStream out) throws IOException {
     out.write("+PONG\r\n".getBytes("UTF-8"));
@@ -44,21 +45,26 @@ private void handleSet(List<String> cmd, OutputStream out, SetGet store) throws 
     }
     out.write(store.set(key, value, pxMillis).getBytes("UTF-8"));
 }
-
 private void handleGet(List<String> cmd, OutputStream out, SetGet store) throws IOException {
-    String key = cmd.get(1);
-    // First, check in-memory
-    String value = store.getValue(key);
-    if (value == null) {
-        // Fallback to RDB data
-        value = rdbData.get(key);
+    if (cmd.size() < 2) {
+        out.write("-ERR wrong args\r\n".getBytes());
+        return;
     }
+
+    String key = cmd.get(1);
     Formatter fmt = new Formatter();
-    out.write(fmt.formatBulkString(value).getBytes("UTF-8"));
+    
+    try {
+        String value = store.getValue(key);
+        if (value == null) {
+            ValueWithExpiry vwe = rdbData.get(key);
+            value = (vwe != null && !vwe.isExpired()) ? vwe.value : null;
+        }
+        out.write(fmt.formatBulkString(value).getBytes("UTF-8"));
+    } catch (Exception e) {
+        out.write("-ERR internal error\r\n".getBytes());
+    }
 }
-
-
-
 private void handleConfigGet(List<String> cmd, OutputStream out) throws IOException {
     Formatter fmt = new Formatter();
     String param = cmd.size() > 1 ? cmd.get(1) : "";

@@ -1,12 +1,13 @@
 public class ValueWithExpiry {
-    String value;
-    long expiryTimestamp; // set to 0 or -1 for "no expiry"
+    public final String value;
+    public final long expiryTimestamp; 
 
-    ValueWithExpiry(String value, long expiryTimestamp) {
+    public ValueWithExpiry(String value, long expiryTimestamp) {
         this.value = value;
         this.expiryTimestamp = expiryTimestamp;
     }
-    boolean isExpired() {
+
+    public boolean isExpired() {
         return expiryTimestamp > 0 && System.currentTimeMillis() > expiryTimestamp;
     }
 }

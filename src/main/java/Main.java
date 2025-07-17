@@ -2,52 +2,40 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Map;
-import java.util.Set;
 
 public class Main {
-    
-  public static void main(String[] args){
-    String dir = "/tmp"; 
-    String dbfilename = "dump.rdb"; 
-    for (int i = 0; i < args.length; i++) {
-      if ("--dir".equals(args[i]) && i + 1 < args.length) {
-        dir = args[++i];
-      } else if ("--dbfilename".equals(args[i]) && i + 1 < args.length) {
-        dbfilename = args[++i];
-      }
-    }
-    RedisConfig config = new RedisConfig(dir, dbfilename);
-     String rdbPath = dir + "/" + dbfilename;
-        Map<String, String> rdbData = RdbLoader.loadRdbData(rdbPath);
-        ServerSocket serverSocket = null;
-        Socket clientSocket = null;
-        int port = 6379;
+    public static void main(String[] args) {
+        String dir = "/tmp";
+        String dbfilename = "dump.rdb";
         
-        try {
-          serverSocket = new ServerSocket(port);
-        serverSocket.setReuseAddress(true);
-      while (true) {
-       clientSocket = serverSocket.accept();
-       new Thread(new ClientHandler(clientSocket,config,rdbData)).start();
-        
-      }
-        } catch (IOException e) {
-          System.out.println("IOException: " + e.getMessage());
-       } finally {
-         try {
-            if (clientSocket != null) {
-              clientSocket.close();
+        // Parse arguments
+        for (int i = 0; i < args.length; i++) {
+            if ("--dir".equals(args[i]) && i + 1 < args.length) {
+                dir = args[++i];
+            } else if ("--dbfilename".equals(args[i]) && i + 1 < args.length) {
+                dbfilename = args[++i];
+            }
+        }
+
+        // Load RDB
+        String rdbPath = dir + "/" + dbfilename;
+        System.out.println("[MAIN] Loading RDB from: " + rdbPath);
+        Map<String, ValueWithExpiry> rdbData = RdbLoader.loadRdbData(rdbPath);
+        System.out.println("[MAIN] Loaded " + rdbData.size() + " keys");
+
+        // Start server
+        try (ServerSocket serverSocket = new ServerSocket(6379)) {
+            serverSocket.setReuseAddress(true);
+            System.out.println("[MAIN] Server ready on port 6379");
+            
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                new Thread(new ClientHandler(clientSocket, 
+                    new RedisConfig(dir, dbfilename), rdbData)).start();
             }
         } catch (IOException e) {
-        System.out.println("IOException: " + e.getMessage());
-
-       
-          }
+            System.err.println("[MAIN] Server error: " + e.getMessage());
+            System.exit(1);
         }
-        
-        
-  }
-
-
-  
+    }
 }
