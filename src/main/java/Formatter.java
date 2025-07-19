@@ -25,4 +25,7 @@ public String formatArray(Collection<String> items) {
         }
         return sb.toString();
     }
+    public String formatRpush( int value ){
+        return ":"+value+"\r\n";
+    }
 }

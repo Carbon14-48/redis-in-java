@@ -9,7 +9,9 @@ public class ClientHandler implements Runnable {
     Socket clientSocket;
     RespParser parser;
     RedisConfig config;
-    Map<String, ValueWithExpiry> rdbData; 
+    Map<String, ValueWithExpiry> rdbData;
+    RPUSH rpush= new RPUSH();
+    // Change here
 
     public ClientHandler(Socket clientSocket, RedisConfig config, Map<String, ValueWithExpiry> rdbData) {
         this.clientSocket = clientSocket;
@@ -55,8 +57,10 @@ private void handleGet(List<String> cmd, OutputStream out, SetGet store) throws 
     Formatter fmt = new Formatter();
     
     try {
+        // Check memory store first
         String value = store.getValue(key);
         if (value == null) {
+            // Check RDB data
             ValueWithExpiry vwe = rdbData.get(key);
             value = (vwe != null && !vwe.isExpired()) ? vwe.value : null;
         }
@@ -116,6 +120,12 @@ public void run() {
                       case "KEYS":
                       handleKeys(out, cmd);
                       break;
+                    case "RPUSH":
+                    if(cmd.size()>2){
+                      rpush.handleRPUSH(out , cmd.get(1), cmd.get(2));
+
+                    }
+                    break;
 
               }
               
@@ -128,5 +138,7 @@ public void run() {
       System.out.println("Exception in run");
   }
 }
+
+
 
 }

@@ -8,7 +8,6 @@ public class Main {
         String dir = "/tmp";
         String dbfilename = "dump.rdb";
         
-        // Parse arguments
         for (int i = 0; i < args.length; i++) {
             if ("--dir".equals(args[i]) && i + 1 < args.length) {
                 dir = args[++i];
@@ -17,13 +16,11 @@ public class Main {
             }
         }
 
-        // Load RDB
         String rdbPath = dir + "/" + dbfilename;
         System.out.println("[MAIN] Loading RDB from: " + rdbPath);
         Map<String, ValueWithExpiry> rdbData = RdbLoader.loadRdbData(rdbPath);
         System.out.println("[MAIN] Loaded " + rdbData.size() + " keys");
 
-        // Start server
         try (ServerSocket serverSocket = new ServerSocket(6379)) {
             serverSocket.setReuseAddress(true);
             System.out.println("[MAIN] Server ready on port 6379");
