@@ -161,7 +161,9 @@ public void run() {
                     break;
                     case "BLPOP":
                     if (cmd.size() > 2) {
-                        rpush.handleBLPOP(out, cmd.get(1), Integer.parseInt(cmd.get(2)));
+                        double timeout = Double.parseDouble(cmd.get(cmd.size() - 1));
+                        String listName = cmd.get(1);
+                        rpush.handleBLPOP(out, listName, timeout);
                     }
                     break;
               }

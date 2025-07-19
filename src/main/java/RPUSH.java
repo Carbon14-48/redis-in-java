@@ -138,9 +138,11 @@ static final Object globalLock= new Object();
             System.out.println("Something went wrong during LPOP");
         }
     }
-    void handleBLPOP(OutputStream os, String listName, int unused) {
+    void handleBLPOP(OutputStream os, String listName, double timeoutSeconds) {
         Object myLock = new Object();
         boolean isWaiting = false;
+        long deadline = System.currentTimeMillis() + (long)(timeoutSeconds * 1000);
+    
         while (true) {
             synchronized (globalLock) {
                 ArrayList<String> list = lists.get(listName);
@@ -161,9 +163,32 @@ static final Object globalLock= new Object();
                     isWaiting = true;
                 }
             }
+            long waitMillis;
+            if (timeoutSeconds == 0) {
+                waitMillis = 0; // wait forever
+            } else {
+                waitMillis = deadline - System.currentTimeMillis();
+                if (waitMillis <= 0) {
+                    // Timeout expired, remove lock and return null bulk string
+                    synchronized (globalLock) {
+                        blockedClients.get(listName).remove(myLock);
+                    }
+                    try {
+                        os.write("$-1\r\n".getBytes());
+                        os.flush();
+                    } catch (IOException e) {
+                        System.out.println("Error writing BLPOP timeout response");
+                    }
+                    return;
+                }
+            }
             synchronized (myLock) {
                 try {
-                    myLock.wait();
+                    if (waitMillis > 0) {
+                        myLock.wait(waitMillis);
+                    } else {
+                        myLock.wait();
+                    }
                 } catch (InterruptedException e) {
                     System.out.println("something went wrong during BLPOP operation ");
                 }
