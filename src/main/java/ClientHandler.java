@@ -1,6 +1,8 @@
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -11,7 +13,6 @@ public class ClientHandler implements Runnable {
     RedisConfig config;
     Map<String, ValueWithExpiry> rdbData;
     RPUSH rpush= new RPUSH();
-    // Change here
 
     public ClientHandler(Socket clientSocket, RedisConfig config, Map<String, ValueWithExpiry> rdbData) {
         this.clientSocket = clientSocket;
@@ -122,11 +123,47 @@ public void run() {
                       break;
                     case "RPUSH":
                     if(cmd.size()>2){
-                      rpush.handleRPUSH(out , cmd.get(1), cmd.get(2));
+                        ArrayList<String > elements = new ArrayList<>();
+                        for(int i =2; i<cmd.size();i++){
+                            elements.add(cmd.get(i));
+                        }
+                      rpush.handleRPUSH(out , cmd.get(1), elements);
 
                     }
                     break;
+                    case "LRANGE":
+                    if( cmd.size()>2){
+                        rpush.handleLRANGE(out, cmd.get(1), Integer.parseInt(cmd.get(2)),  Integer.parseInt(cmd.get(3)));
+                    }
 
+                    break;
+                    case "LPUSH":
+                    if(cmd.size()>2){
+                        ArrayList<String > elements = new ArrayList<>();
+                        for(int i =2; i<cmd.size();i++){
+                            elements.add(cmd.get(i));
+                        }
+                      rpush.handleLPUSH(out , cmd.get(1), elements);
+
+                    }
+                    break;
+                    case "LLEN":
+                    if(cmd.size()>1){
+                        rpush.handleLLEN(out, cmd.get(1));
+                    }
+                    break;
+                    case "LPOP":
+                        if(cmd.size() == 2) {
+                            rpush.handleLPOP(out, cmd.get(1)); 
+                        } else if(cmd.size() > 2) {
+                            rpush.handleLPOP(out, cmd.get(1), Integer.parseInt(cmd.get(2)));
+                        }
+                    break;
+                    case "BLPOP":
+                    if (cmd.size() > 2) {
+                        rpush.handleBLPOP(out, cmd.get(1), Integer.parseInt(cmd.get(2)));
+                    }
+                    break;
               }
               
               out.flush();
