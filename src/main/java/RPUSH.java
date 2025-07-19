@@ -11,9 +11,13 @@ private Formatter fmt  = new Formatter();
     } 
 
      void handleRPUSH(OutputStream os ,String list_name , String element ){
-        var temp = new ArrayList<String>();
-        temp.add(element);
-        lists.put(list_name,temp);
+        if( lists.containsKey(list_name)){
+            lists.get(list_name).add(element);
+        }else{
+            var temp = new ArrayList<String>();
+            temp.add(element);
+            lists.put(list_name,temp);
+        }
         var answer =fmt.formatRpush(lists.get(list_name).size());
         try{
         os.write(answer.getBytes());
