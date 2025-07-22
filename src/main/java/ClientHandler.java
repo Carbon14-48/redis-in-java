@@ -87,17 +87,24 @@ private void handleType(OutputStream out, String key, SetGet store) throws IOExc
     }
     out.write(("+TYPE " + type + "\r\n").getBytes("UTF-8"));
 }
+private static final String MASTER_REPLID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
+private static final String MASTER_REPL_OFFSET = "0";
+
 
 private void handleInfo(List<String> cmd, OutputStream out) throws IOException {
     if (cmd.size() > 1 && "replication".equalsIgnoreCase(cmd.get(1))) {
-        var fmt = new Formatter();
-        String info = isReplica ? "role:slave" : "role:master";
-        var reply = fmt.formatBulkString(info);
-        out.write(reply.getBytes("UTF-8"));
+        StringBuilder info = new StringBuilder();
+        info.append("role:").append(isReplica ? "slave" : "master").append("\r\n");
+        if (!isReplica) { 
+            info.append("master_replid:").append(MASTER_REPLID).append("\r\n");
+            info.append("master_repl_offset:").append(MASTER_REPL_OFFSET).append("\r\n");
+        }
+        String resp = new Formatter().formatBulkString(info.toString());
+        out.write(resp.getBytes("UTF-8"));
     } else {
         out.write("$0\r\n\r\n".getBytes("UTF-8"));
     }
-}  
+}
 
 private void handleConfigGet(List<String> cmd, OutputStream out) throws IOException {
     Formatter fmt = new Formatter();
