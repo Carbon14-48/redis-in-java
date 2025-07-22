@@ -2,7 +2,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,11 +12,14 @@ public class ClientHandler implements Runnable {
     RedisConfig config;
     Map<String, ValueWithExpiry> rdbData;
     RPUSH rpush= new RPUSH();
+    boolean isReplica; 
 
-    public ClientHandler(Socket clientSocket, RedisConfig config, Map<String, ValueWithExpiry> rdbData) {
+   
+    public ClientHandler(Socket clientSocket, RedisConfig config, Map<String, ValueWithExpiry> rdbData, boolean isReplica) {
         this.clientSocket = clientSocket;
         this.config = config;
         this.rdbData = rdbData;
+        this.isReplica = isReplica;
     }
     
        private void handlePing(OutputStream out) throws IOException {
@@ -70,6 +72,33 @@ private void handleGet(List<String> cmd, OutputStream out, SetGet store) throws 
         out.write("-ERR internal error\r\n".getBytes());
     }
 }
+private void handleType(OutputStream out, String key, SetGet store) throws IOException {
+    String type = "none";
+    ValueWithExpiry vwe = store.store.get(key);
+    if (vwe == null || vwe.isExpired()) {
+        vwe = rdbData.get(key);
+        if (vwe == null || vwe.isExpired()) {
+            type = "none";
+        } else {
+            type = "string"; 
+        }
+    } else {
+        type = "string"; 
+    }
+    out.write(("+TYPE " + type + "\r\n").getBytes("UTF-8"));
+}
+
+private void handleInfo(List<String> cmd, OutputStream out) throws IOException {
+    if (cmd.size() > 1 && "replication".equalsIgnoreCase(cmd.get(1))) {
+        var fmt = new Formatter();
+        String info = isReplica ? "role:slave" : "role:master";
+        var reply = fmt.formatBulkString(info);
+        out.write(reply.getBytes("UTF-8"));
+    } else {
+        out.write("$0\r\n\r\n".getBytes("UTF-8"));
+    }
+}  
+
 private void handleConfigGet(List<String> cmd, OutputStream out) throws IOException {
     Formatter fmt = new Formatter();
     String param = cmd.size() > 1 ? cmd.get(1) : "";
@@ -166,6 +195,11 @@ public void run() {
                         rpush.handleBLPOP(out, listName, timeout);
                     }
                     break;
+                    case "TYPE":
+                    handleType(out, cmd.get(1),store);
+                    break;
+                    case "INFO":
+                    handleInfo(cmd, out);
               }
               
               out.flush();

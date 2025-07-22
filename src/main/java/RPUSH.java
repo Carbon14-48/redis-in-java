@@ -8,12 +8,12 @@ import java.util.Map;
 import java.util.Queue;
 
 public class RPUSH {
- static HashMap<String , ArrayList<String> > lists;
 private Formatter fmt  = new Formatter();
 static Map<String , Queue<Object> > blockedClients =new HashMap<>();
 static final Object globalLock= new Object();
+static HashMap<String , ArrayList<String> > lists = new HashMap<>();
+
     RPUSH( ){
-      lists= new HashMap<>();
     } 
     void handleRPUSH(OutputStream os, String list_name, ArrayList<String> elements) {
         Object toWake = null;

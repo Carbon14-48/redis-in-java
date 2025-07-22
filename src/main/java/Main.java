@@ -27,8 +27,7 @@ public class Main {
             
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                new Thread(new ClientHandler(clientSocket, 
-                    new RedisConfig(dir, dbfilename), rdbData)).start();
+                new Thread(new ClientHandler(clientSocket, new RedisConfig(dir, dbfilename), rdbData)).start();
             }
         } catch (IOException e) {
             System.err.println("[MAIN] Server error: " + e.getMessage());
