@@ -91,6 +91,17 @@ private static final String MASTER_REPLID = "8371b4fb1155b71f4a04d3e1bc3e18c4a99
 private static final String MASTER_REPL_OFFSET = "0";
 
 
+private void handlePsync(OutputStream out) throws IOException {
+    String resp = "+FULLRESYNC " + MASTER_REPLID + " 0\r\n";
+    out.write(resp.getBytes("UTF-8"));
+
+    // Canonical empty RDB file (45 bytes)
+    byte[] contents = java.util.HexFormat.of().parseHex(
+        "5245444953303030360aff0000000000000000000000000000000000000000000000"
+    );
+    out.write(("$" + contents.length + "\r\n").getBytes("UTF-8"));
+    out.write(contents); // No trailing \r\n
+}
 private void handleInfo(List<String> cmd, OutputStream out) throws IOException {
     if (cmd.size() > 1 && "replication".equalsIgnoreCase(cmd.get(1))) {
         StringBuilder info = new StringBuilder();
@@ -104,6 +115,9 @@ private void handleInfo(List<String> cmd, OutputStream out) throws IOException {
     } else {
         out.write("$0\r\n\r\n".getBytes("UTF-8"));
     }
+}
+private void handleReplconf(OutputStream out) throws IOException {
+    out.write("+OK\r\n".getBytes("UTF-8"));
 }
 
 private void handleConfigGet(List<String> cmd, OutputStream out) throws IOException {
@@ -207,6 +221,13 @@ public void run() {
                     break;
                     case "INFO":
                     handleInfo(cmd, out);
+                    break;
+                    case "REPLCONF":
+                    handleReplconf(out);
+                    break;
+                    case "PSYNC":
+    handlePsync(out);
+    break;
               }
               
               out.flush();
